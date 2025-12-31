@@ -137,6 +137,45 @@ export default class RecipeGrabber extends Plugin {
       });
     }
 
+    function parseMicrodata(el: cheerio.Element): void {
+      // manually parse the recipe: get all tags with itemprop attribute
+      const recipe: any = {};
+      $(el)
+        .find("[itemprop]")
+        .each((_, item) => {
+          const $item = $(item);
+          const itemprop = $item.attr("itemprop");
+          let value: any;
+          if ($item.is("meta") && ($item.attr("content") || "").trim() !== "") {
+            value = $item.attr("content")?.trim();
+          } else if (
+            $item.is("img") &&
+            ($item.attr("src") || "").trim() !== ""
+          ) {
+            value = $item.attr("src")?.trim();
+          } else {
+            value = $item.text().trim();
+          }
+
+          // handle multiple recipeIngredient and recipeInstructions
+          if (itemprop === "recipeIngredient") {
+            if (!Array.isArray(recipe[itemprop])) {
+              recipe[itemprop] = [];
+            }
+            recipe[itemprop].push(value);
+          } else if (itemprop === "recipeInstructions") {
+            if (!Array.isArray(recipe[itemprop])) {
+              recipe[itemprop] = [];
+            }
+            recipe[itemprop].push({ text: value });
+          } else {
+            recipe[itemprop as string] = value;
+          }
+        });
+      normalizeSchema(recipe);
+      recipes.push(recipe);
+    }
+
     // parse the dom of the page and look for any schema.org/Recipe
     $('script[type="application/ld+json"]').each((i, el) => {
       const content = $(el).text()?.trim();
@@ -146,6 +185,14 @@ export default class RecipeGrabber extends Plugin {
       const data = Array.isArray(json) ? json : [json];
       handleSchemas(data);
     });
+
+    if (recipes?.length === 0) {
+      $(
+        '[itemtype="http://schema.org/Recipe"], [itemtype="https://schema.org/Recipe"]',
+      ).each((_, el) => {
+        parseMicrodata(el);
+      });
+    }
 
     return recipes;
   }
