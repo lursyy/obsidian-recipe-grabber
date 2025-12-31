@@ -112,8 +112,6 @@ export default class RecipeGrabber extends Plugin {
       if (typeof json.recipeIngredient === "string") {
         json.recipeIngredient = [json.recipeIngredient];
       }
-
-      recipes.push(json);
     };
 
     /**
@@ -133,6 +131,7 @@ export default class RecipeGrabber extends Plugin {
               : schema?.["@type"] === "Recipe"
           ) {
             normalizeSchema(schema);
+            recipes.push(schema);
           }
         }
       });
@@ -155,6 +154,14 @@ export default class RecipeGrabber extends Plugin {
    * This function handles all the templating of the recipes
    */
   private addRecipeToMarkdown = async (url: string): Promise<void> => {
+    handlebars.registerHelper("tagify", function (arg1) {
+      if (typeof arg1 != "string") {
+        return "";
+      }
+      // replace all whitespace with _ and lowercase
+      return arg1.replace(/\s+/g, "_").toLowerCase();
+    });
+
     // Add a handlebar function to split comma separated tags into the obsidian expected array/list
     handlebars.registerHelper("splitTags", function (tags) {
       if (!tags || typeof tags != "string") {
